@@ -1,10 +1,9 @@
 package com.example.nakama.searchproduct.view
 
-import android.content.Intent
-import android.os.Build
+import android.arch.lifecycle.Observer
 import android.support.v7.app.AppCompatActivity
 import android.os.Bundle
-import android.support.v7.widget.LinearLayoutManager
+import android.support.v7.widget.GridLayoutManager
 import android.support.v7.widget.RecyclerView
 import android.support.v7.widget.SearchView
 import android.util.Log
@@ -12,34 +11,31 @@ import android.view.LayoutInflater
 import android.view.Menu
 import android.view.View
 import android.view.ViewGroup
+import com.bumptech.glide.load.resource.bitmap.CenterCrop
+import com.bumptech.glide.load.resource.bitmap.RoundedCorners
+import com.bumptech.glide.request.RequestOptions
 import com.example.nakama.searchproduct.R
-import org.koin.android.ext.android.setProperty
-
+import com.example.nakama.searchproduct.model.ui.DataItemUiModel
+import com.example.nakama.searchproduct.model.ui.ResultSearchUiModel
+import com.example.nakama.searchproduct.util.Constants
+import com.example.nakama.searchproduct.util.GlideApp
+import com.example.nakama.searchproduct.viewmodel.SearchViewModel
+import kotlinx.android.synthetic.main.activity_main.*
+import kotlinx.android.synthetic.main.list_item.view.*
+import org.koin.android.viewmodel.ext.android.viewModel
 
 class MainActivity : AppCompatActivity() {
 
     private val tag = this::class.java.simpleName
 
-    private val viewModel: ListViewModel by viewModel()
+    private val viewModel: SearchViewModel by viewModel()
+
+    private val itemAdapter = ListItemRecyclerViewAdapter()
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
-
-        val sourceId = intent.getStringExtra("sourceId")
-        setProperty("sourceId", sourceId)
-
-        viewModel.uiData.observe(this, Observer { updateUi(it!!) })
-
-        viewModel.isLoading.observe(this, Observer {
-            it?.let { progressBar.visibility = if (it) View.VISIBLE else View.GONE } })
-
-        viewModel.isError.observe(this, Observer {
-            Log.d(tag, "isError $it")
-        })
-
-        viewModel.update()
-        initUi()
+        progressBar.visibility = View.GONE
     }
 
     override fun onCreateOptionsMenu(menu: Menu?): Boolean {
@@ -49,7 +45,16 @@ class MainActivity : AppCompatActivity() {
             val searchMenu = menu.findItem(R.id.action_search)
             (searchMenu.actionView as SearchView).setOnQueryTextListener(object : SearchView.OnQueryTextListener {
                 override fun onQueryTextSubmit(query: String?): Boolean {
-                    viewModel.search(query)
+                    viewModel.search(query, 1)
+
+                    viewModel.uiData.observe(this@MainActivity, Observer { updateUi(it!!) })
+
+                    viewModel.isLoading.observe(this@MainActivity, Observer {
+                        it?.let { progressBar.visibility = if (it) View.VISIBLE else View.GONE } })
+
+                    viewModel.isError.observe(this@MainActivity, Observer {
+                        Log.d(tag, "isError $it")
+                    })
                     return false
                 }
 
@@ -62,24 +67,35 @@ class MainActivity : AppCompatActivity() {
         return super.onCreateOptionsMenu(menu)
     }
 
-    private fun initUi() {
-        newsSourceList.adapter = ListSourceNewsRecyclerViewAdapter()
-        newsSourceList.layoutManager = LinearLayoutManager(this, LinearLayoutManager.VERTICAL, false)
-    }
+    private fun updateUi(newData: ResultSearchUiModel) {
+        val status = newData.status?.message
 
-    private fun updateUi(newData: ResultListUiModel) {
-        val status = newData.status
+        itemList.apply {
+            layoutManager = GridLayoutManager(
+                    this@MainActivity,
+                    2
+            )
+            adapter = itemAdapter
+        }
+
+        itemList.addOnScrollListener(object: RecyclerView.OnScrollListener() {
+            override fun onScrolled(recyclerView: RecyclerView, dx: Int, dy: Int) {
+                super.onScrolled(recyclerView, dx, dy)
+
+                val totalItemCount = itemList.layoutManager?.itemCount
+                val visibleItemCount = itemList.childCount
+                Log.d(tag, "++ onScrolled! - totalItemCount = $totalItemCount, visibleItemCount = $visibleItemCount")
+            }
+        })
+
         if (status.equals(Constants.OK, true)) {
-            (newsSourceList.adapter as ListSourceNewsRecyclerViewAdapter).updateData(newData.articles!!)
-
-            val title = newData.articles?.get(0)?.sourceName
-            (this as AppCompatActivity).supportActionBar?.title = title
+            itemAdapter.updateData(newData.datas!!)
         }
     }
 
-    inner class ListSourceNewsRecyclerViewAdapter : RecyclerView.Adapter<ListSourceNewsRecyclerViewAdapter.ViewHolder>() {
+    inner class ListItemRecyclerViewAdapter : RecyclerView.Adapter<ListItemRecyclerViewAdapter.ViewHolder>() {
 
-        val data = mutableListOf<ListUiModel>()
+        val data = mutableListOf<DataItemUiModel>()
 
         override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): ViewHolder {
             return ViewHolder(LayoutInflater.from(parent.context).inflate(R.layout.list_item, parent, false))
@@ -91,34 +107,22 @@ class MainActivity : AppCompatActivity() {
         }
 
         override fun onBindViewHolder(holder: ViewHolder, position: Int) {
-            holder.itemView.articleTitle.text = data[position].title
+            holder.itemView.itemName.text = data[position].itemName
+            holder.itemView.itemPrice.text = data[position].itemPrice
 
-            if (data[position].urlToImage.isNullOrEmpty()) {
-                holder.itemView.img.visibility = View.GONE
+            if (data[position].itemImg.isNullOrEmpty()) {
+                holder.itemView.itemImg.visibility = View.GONE
             } else {
-                holder.itemView.img.visibility = View.VISIBLE
-                GlideApp.with(this@ListActivity)
-                    .load(data[position].urlToImage)
+                holder.itemView.itemImg.visibility = View.VISIBLE
+
+                GlideApp.with(this@MainActivity)
+                    .load(data[position].itemImg)
                     .centerCrop()
-                    .into(holder.itemView.img)
-            }
-
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                holder.itemView.articleDesc.text = Util.convertDateTimeToFormattedTime(data[position].publishedAt)
-            } else {
-                holder.itemView.articleDesc.text = data[position].description
-            }
-
-            holder.itemView.setOnClickListener {
-                println("ID = ${data[position].url}")
-                val intent = Intent(this@ListActivity, DetailActivity::class.java)
-                intent.putExtra("url", data[position].url)
-                intent.putExtra("sourceName", data[position].sourceName)
-                startActivity(intent)
+                    .into(holder.itemView.itemImg)
             }
         }
 
-        fun updateData(newData: List<ListUiModel>) {
+        fun updateData(newData: List<DataItemUiModel>) {
             data.clear()
             data.addAll(newData)
             notifyDataSetChanged()

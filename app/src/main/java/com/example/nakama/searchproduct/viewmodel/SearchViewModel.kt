@@ -4,15 +4,15 @@ import android.arch.lifecycle.LiveData
 import android.arch.lifecycle.MutableLiveData
 import android.arch.lifecycle.Transformations
 import android.arch.lifecycle.ViewModel
+import com.example.nakama.searchproduct.api.RestSearchAPI
 import com.example.nakama.searchproduct.model.data.ResultSearchDataModel
-import com.example.nakama.searchproduct.model.data.StatusDataModel
 import com.example.nakama.searchproduct.util.toSearchUiModel
 import kotlinx.coroutines.experimental.GlobalScope
 import kotlinx.coroutines.experimental.launch
 import kotlinx.coroutines.experimental.withContext
 import kotlin.coroutines.experimental.CoroutineContext
 
-class SearchViewModel(val sourceId: String, val api: RestSearchAPI, val mainThread: CoroutineContext, val bgThread: CoroutineContext) : ViewModel() {
+class SearchViewModel(val api: RestSearchAPI, val mainThread: CoroutineContext, val bgThread: CoroutineContext) : ViewModel() {
 
     private val data = MutableLiveData<ResultSearchDataModel>()
 
@@ -30,24 +30,11 @@ class SearchViewModel(val sourceId: String, val api: RestSearchAPI, val mainThre
         it
     }
 
-    fun update() {
+    fun search(q: String?, start: Int?) {
         GlobalScope.launch(mainThread) {
             loading.value = true
             try {
-                data.value = withContext(bgThread) { api.getListHeadlines(sourceId, Constants.KEY_API).await() }
-            } catch (err: Exception) {
-                error.value = true
-                println("++ ERROR! ${err.localizedMessage}")
-            }
-            loading.value = false
-        }
-    }
-
-    fun search(q: String?) {
-        GlobalScope.launch(mainThread) {
-            loading.value = true
-            try {
-                data.value = withContext(bgThread) { api.getSearch(q!!, Constants.KEY_API).await() }
+                data.value = withContext(bgThread) { api.getSearch(q!!, start!!).await() }
             } catch (err: Exception) {
                 error.value = true
                 println("++ ERROR! ${err.localizedMessage}")

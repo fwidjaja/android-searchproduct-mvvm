@@ -1,3 +1,5 @@
 <resources>
-    <string name="app_name">SearchProduct</string>
+    <string name="app_name">Kotlin MVVM SearchProduct</string>
+    <string name="main_menu_search_title">Search</string>
+    <string name="img">img</string>
 </resources>

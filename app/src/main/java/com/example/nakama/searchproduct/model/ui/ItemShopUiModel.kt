@@ -1,6 +1,6 @@
 package com.example.nakama.searchproduct.model.ui
 
-class ShopUiModel (
+class ItemShopUiModel (
     var id: Long? = null,
     var name: String? = null,
     var uri: String? = null,
