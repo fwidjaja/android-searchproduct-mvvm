@@ -1,7 +1,8 @@
-package com.fwidjaja.newsaggregator.di
+package com.example.nakama.searchproduct.di
 
 import com.example.nakama.searchproduct.BuildConfig
 import com.example.nakama.searchproduct.api.RestSearchAPI
+import com.example.nakama.searchproduct.util.Constants
 import com.example.nakama.searchproduct.viewmodel.SearchViewModel
 import com.jakewharton.retrofit2.adapter.kotlin.coroutines.experimental.CoroutineCallAdapterFactory
 import kotlinx.coroutines.experimental.Dispatchers
@@ -35,7 +36,7 @@ val searchModules = module {
         Retrofit.Builder()
                 .addCallAdapterFactory(CoroutineCallAdapterFactory())
                 .addConverterFactory(GsonConverterFactory.create())
-                .baseUrl("https://ace.tokopedia.com")
+                .baseUrl(Constants.BASE_URL)
                 .client(okHttpClient)
                 .build().create(RestSearchAPI::class.java)
     }
